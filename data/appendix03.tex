@@ -1,0 +1,145 @@
+\chapter{分子模拟方法简介}
+\section{密度泛函第一性原理计算}
+\subsection{密度泛函理论简介}
+密度泛函理论(Density function theory, DFT)是广泛应用在物理学,化学乃至材料科学中的一种依靠研究电子密度结构来对多粒子体系进行研究的方法。 在这一方法中， 多电子体系的性质可以依据电子密度泛函来决定，从而得名密度泛函。 这一理论实际上会通过一些合理的近似和假设，将实际包含着电子-电子相互作用的问题进行简化，化为无相互作用的体系的问题加以求解，并有着自己的一套控制误差的理论方法。\\
+\indent 根据量子力学基本原理，只需要得到一个体系的波函数 $\Psi(r,t)$，就可以得到这个体系的全部信息，一般地利用波恩-奥本海默近似（忽略原子核的运动），一般体系的控制方程为下面的含时薛定谔方程：
+\begin{equation}
+\label{eq:sch}
+\widehat{H} \Psi = \left[ \widehat{T} + \widehat{V} +\widehat{U} \right] \Psi = \left[ \sum^N_i \left( -\frac{\hbar^2}{2m_i} \nabla^2_i \right) + \sum^N_i V(\mathbf{r_i}) + \sum^N_{i < j} U(\mathbf{r_i},\mathbf{r_j}) \right] \Psi = E \Psi
+\end{equation}
+其中$\widehat{H}$为体系的哈密顿算符，T和V分别为动能算符和电场，而U电子-电子相互作用。 其实方程的难解在于U这一项十分复杂，比如大学物理中会给出解析解的氢原子和类氢原子能级的解，这是因为这些粒子没有电子的相互作用项。 而实际上绝大多数的体系都是有复杂的电子相互作用的因此得不到解析解，从而数值解在对于实际体系而言几乎是唯一的方法。\\
+\subsubsection*{H-K定理}
+\indent 在介绍密度泛函方法前，首先介绍其建立的基础：Hohenberg–Kohn theorems。
+\begin{enumerate}
+	\item H-K第一原理: 对于一个电子态密度 $n(\mathbf{r})$ 有着唯一对应的基态势能项$V_{ext}(\mathbf{r})$和基态总能量E，那么方程\ref{eq:sch}中的基态能量可以用电子密度表示为：
+	\begin{equation}
+	E[n(\mathbf{r})] = \Psi^{*} \left(
+	\widehat{T} + \widehat{V} +\widehat{U} \right)
+	\end{equation}
+	此时，薛定谔方程的自由度从之前的N粒子对应的3N下降到了3，使得运算的复杂度大大降低。
+	\item H-K第二定理：第二定理实际上是第一定理的变分原理，即能获得最低能量的电子密度即为基态电子密度。
+
+\end{enumerate}
+\subsubsection*{密度泛函理论基本框架}
+基于H-K定理，体系的波函数$\Psi$和能量E以及体系的其他物理量都是电子态密度 $n$ 的函数。
+首先，电子态密度可以用体系波函数表示为：
+\begin{equation}
+n = n(\mathbf{r}) = N \int d\mathbf{r_1} ... \int d \mathbf{r_N} \Psi^*(\mathbf{r},\mathbf{r_2},...,\mathbf{r_N})\Psi(\mathbf{r},\mathbf{r_2},...,\mathbf{r_N})
+\end{equation}
+体系总能量可以写成
+\begin{equation}
+E(n) = \Psi^*(n) \widehat{H} \Psi(n) = \Psi^*(n) \left(\widehat{T} + \widehat{U} + \widehat{V} \right) \Psi(n)
+\end{equation}
+此时，方程被简化为三个自由度，可以进行下一步的简化。
+\begin{itemize}
+	\item 动能项$\mathbf{T}$:\\
+	忽略电子间相互作用，则动能项可以简化为：
+	\begin{equation}
+	T(n) \approx T_s(n) = -\frac{\hbar^2}{2m} \sum^{N}_{i=1} \int d^3r \Phi^*_i(\mathbf{r}) \nabla^2 \Phi_i(\mathbf{r})
+	\end{equation}
+	其中，$\Phi_i(\mathbf{r})$是第i个电子的轨道波函数，而$T_s(n)$为这些电子的轨道动能的和。
+	\item 外势能项:\\
+	依据波恩-奥本海默近似，可以得到外势能的表达式
+	\begin{equation}
+	V(n) = \int V(\mathbf{r}) n(\mathbf{r})d\mathbf{r}
+	\end{equation}
+	\item 相互作用：\\
+	依据托马斯-费米模型得出一个很符合直觉的近似：
+	\begin{equation}
+	U(n) \approx U_{H}(n) = \frac{e^2}{2} \int d \mathbf{r} \int \mathbf{r'} \frac{n(\mathbf{r})n(\mathbf{r'})}{|\mathbf{r}-\mathbf{r'}|}
+	\end{equation}
+\end{itemize}
+将上面三项求和可以得到能量的近似表达：
+\begin{equation}
+E_{approx}(n) = T_s(n) + U_H(n) + V(n)
+\end{equation}
+定义其和实际能量的差为交换-关联能(exchange-correlation energy):
+\begin{equation}
+\label{eq:e}
+\varepsilon = (T - T_s)+(U - U_H) = E_{XC}
+\end{equation}
+\subsubsection*{交换-关联泛函}
+根据上面的陈述可以发现其实DFT的核心在于如何计算上面的\ref{eq:e}，这就有诸如局域密度近似(LDA)和广义梯度近似等方法。由于在本文的研究中，所关注的是锂离子的扩散，其电子密度改变相对不是很快，于是可以选择计算难度较小的LDA方法。\\
+局域密度近似(Local Density Approximation, LDA)\\
+\indent LDA近似认为空间各个点的$E_{XC}$即交换-交联能只和该点出的电子密度有关，这一关键假设决定其本质上是一个局域的理论，在对于主要是短程相互作用的体系这一简化就十分有力。 LDA的表达式可以写为：
+\begin{equation}
+E^{LDA}_{XC}(n) = \int d \mathbf{r} \mathnormal{f}(n)
+\end{equation}
+对于$E_{XC}$其可以自然地被分为两部分（交换和关联项）：
+\begin{equation}
+E^{LDA}_{XC} = E^{LDA}_X + E^{LDA}_C
+\end{equation}
+\begin{enumerate}
+	\item 其中的交换部分可以使用均匀电子近似假设予以简化，得到其交换能(用狄拉克泛函给出)为：
+	\begin{equation}
+	E^{LDA}_X(n) = -\frac{3}{4} \left(\frac{3}{\pi} \right)^{1/3} \int d^3r n(\mathbf{r})^{4/3}
+	\end{equation}
+	\item 而对于关联部分，分为高密度和低密度下有着两种近似方法：
+	\begin{itemize}
+		\item 高密度情况下，对于空间点的关联能为：
+		\begin{equation}
+		\varepsilon_C = Aln(r_s) + C + \mathnormal{O}(r_s)
+		\end{equation}
+		其中$r_s = \frac{1}{a_0} \left(\frac{3}{4\pi n} \right)^{-3}$。
+		\item 对于低密度情况，可以将空间某点关联能写为：
+		\begin{equation}
+		\varepsilon_C = \frac{1}{2} \left(\frac{g_0}{r_s} + \frac{g_1}{r^{3/2}_s} + ... \right) \quad g_0 \approx -0.884,\quad g_1=3
+		\end{equation}
+	\end{itemize}
+\end{enumerate}
+(本节所主要参考的文献为\cite{Parr1989Density,Burke2005Time,Becke1993Density})
+\subsection{锂离子扩散过程模拟方法——微动弹性带方法}
+在本文的模拟过程中，其中的一个关键的难点是如何根据锂离子扩散前后的构型得到扩散过程中的亚稳定构型，从而对扩散过程中的晶体力学性质展开研究。在模拟中，本文采用微动弹性带的方法寻找初始和最终构型间的能量的鞍点并得到最小能量路径。这一方法会在保证每个中间构型的最低能量的同时去保证过程之间的能量差的平衡。 其实际的优化是通过在不同能层之间添加弹簧力从而得到垂直于带的投影力的分量来进行。实际的操作是对于一系列可能构像，附加上除了化学力之外的弹簧力，然后让优化算法进行约束构象间隔的弛豫，每一个点的作用力都可以写成下列形式:
+\begin{equation}
+\mathbf{f}_i = \mathbf{f}^{\parallel}_i - \mathbf{g}^{\perp}_i
+\end{equation}
+其中
+\begin{equation}
+\mathbf{f}^{\parallel}_i = k \left[(\mathbf{r_{i+1}} - \mathbf{r_i}) - (\mathbf{r_i} - \mathbf{r_{i-1}}) \times \tau_i \right]\tau_i
+\end{equation}
+是弹簧力沿着构象路径的分量。
+\subsubsection*{Climbing Image Method}
+为了更加精确的模拟锂离子的扩散，在NEB方法的基础上可以引入一个小的修正，这也是本文在模拟中所实际采用的方法。具体是将最高能量的构想驱动到鞍点，然后在这里不施加弹簧力，将沿着切向的真实体系里倒置进行优化。从而可以使得整个构想会最大限度的沿着频带的切向发展，而在其他的所有方向最小化，知道收敛时所达到的鞍点会更加精确。\\
+(本节的主要参考文献为\cite{Henkelman2000Improved,Henkelman2000A,Smidstrup2014Improved})
+\subsection{化学反应率计算——谐波过渡态理论}
+本文在模拟锂离子在$LiFePO_4$晶体中沿着不同方向扩散的能垒时还计算了其分别的化学反应率，其计算理论和方法为谐波过渡态理论(Harmonic Transition State Theory,HTST)，此处对这一方法做一个简要介绍。
+对于化学反应行为的模拟，原则上可以采用下一节将会介绍的分子动力学模拟的方法，但是往往在固体中的化学反应比较缓慢从而使得分子动力学的迭代耗费十分巨大，此时另辟蹊径从统计力学的角度出发进行计算不失为一种很好的解决思路。\\
+\indent 谐波过渡态方法通过从化学反应的产物中推测出反应物的过渡态来进行分析。对于固体中的反应而言，采用谐波近似往往是十分有效的，另外往往系统的平均动能要比能量势垒小很多。\\
+\indent 第一步是找到反应的鞍点，这其实可以通过之前所提到的Climb Image Method得到，而一旦到达鞍点就可以进行反应速率的计算：
+\begin{equation}
+K_{HTST} = \frac{\Pi^{3N}_{i} \nu^R_i}{\Pi^{3N-1}{i} \nu^S_i} exp \left[-(E^S -E^R)/k_bT\right]
+\end{equation}
+其中，$N$为原子数目，$\nu^R_i$和$\nu^S_i$为起始和鞍点构像的模态频率，$E^R$和$E^S$是最小点和鞍点的能量，$k_B$是玻尔兹曼常数。\\
+值得指出的是，HTST的计算方法和著名的阿伦尼乌斯方程十分相似：
+\begin{equation}
+k_{Arr} = A exp\left[-E_a/k_BT\right]
+\end{equation}
+对于阿伦尼乌斯方程，其系数因子，A，相当于对应振动模态的乘积和在HTST方程中鞍上稳定振动模式乘积的最小值的比值，这可以看做是系统每秒沿着反应方向振动的次数。 同时，方程中的活化能，$E_a$是HTST中鞍点和最小能量之间的差异。 采用指数分布是因为沿着反应方向的振动会遵从玻尔兹曼分布，而后者正好是指数分布。\\
+(本节的主要参考文献为\cite{Vineyard1957Frequency,Eyring1935The,Voter1984Transition})
+\section{分子动力学}
+分子动力学是研究原子和分子的运动从而得出体系特性的经典模拟方法。在分子动力学模拟中，粒子在模拟时间和模拟尺度内进行相互作用，从而进行运动和重新分布，进而给出系统随着时间动态演化的信息。 通常而言，对于经典的分子动力学，其通常采用粒子间的给定的势场来得到粒子间的相互作用力，从而求解相互作用系统的牛顿方程从而得到粒子的运动轨迹。\\
+\indent 对于通常的多粒子体系而言，其组成系统的粒子总数通常是非常之多的，从而应用通常的方法进行系统性质的分析就十分的困难，而恰恰分子动力学方法可以依靠统计力学和数值积分的方法比较好的解决这一难点。 对于一个满足各态历经假设的系统，就可以采用分子动力学模拟来确定系统的宏观热力学性质——即遍历系统的时间平均值对应微正则系综平均值。 从而，分子动力学手段可以通过统计力学的原理来洞察到系统在原子尺度的发展演变。
+\\
+\indent 要进行分子动力学模拟，需要预先给定势函数和系综方法，势函数可以从化学结构如化学键的研究得到，也可以通过量子力学的模拟和计算得到，关于势能的选取前文部分有详细的说明，此处不再赘述，以下将对系综方法进行简要介绍。\\
+\indent 对于统计力学而言，其求得宏观物理量的方法是对微观状态求统计平均。而实际上，分子的动量和能量的交换十分的频繁和剧烈（如1s中可以发生$10^{28}$次碰撞），在相空间中系统的微观状态十分迅速地发生着变化。这也就意味着想对宏观系统（包含$10^{23}$以上粒子）的哈密顿方程进行积分求解是完全没有可能的，而系综正是将对时间上的平均变换为对微观状态的平均，其本质为将牛顿力学转换为统计规律。 假设可以复制出有着完全一样的宏观约束参数的系统，其显然可以处于不同的微观状态，而这些尽可能多的系统每一个都实际上等价于相空间中的一个点，从而这些系统整体构成了一个系综(Ensemble)。而对于不同的约束条件，自然就区分为不同的系综：
+\begin{itemize}
+	\item 正则系综(Canonical Ensemble, NVT)\\
+	假设N个粒子在体系为V的系统中，其环境为温度恒定为T的热浴。那么总能量和系统的压强可能在一个稳定值附近波动，此时系统有特征函数亥姆霍兹自由能$\mathcal{H}(N,V,T)$可以用来求得所有宏观物理参数。
+	\item 微正则系综(Micro-Canonical Ensemble,NVE)\\
+	微正则系综被广泛应用在分子动力学模拟中，假定N个粒子处于体积为V的系统中，给定总能量E，此时温度和压强均可能产生波动，系统的特征函数为熵$\mathcal{S}(N,V,E)$
+	\item 等温等压系综(Constant-Pressure and Constant Temperature,NPT)，即具有给定的粒子数，压强和温度，从而能量和体积会发生改变，特征函数是吉布斯自由能$\mathcal{G}(N,P,T)$。这一系综实际上是系统的边界可以发生移动的情况下给定环境为恒温的热浴的系综，也是本文在模拟$LiFePO_4$晶体在受到外载形变行为所采用的方法。
+\end{itemize}
+最后介绍分子动力学模拟的主要步骤和思路：
+\begin{enumerate}
+	\item 给定系统粒子初始的位移$\mathbf{r}^{i=0}$和速度$\mathbf{v}^{i=0}$，设定加速度$\alpha$初始值为零，并给定合适的时间间隔$\Delta t$
+	\item 预测求出新的原子位形：给定原子位置 $\mathbf{r}^p = \mathbf{r}^{(i)}+ \mathbf{v}^{(i)} + 1/2 \alpha \Delta t^2 ...$ 更新原子速度 $\mathbf{v}^p = \mathbf{v}^{(i)}+\alpha \Delta t$
+	\item 求出新的粒子受力$\mathbf{F} = - \nabla V(\mathbf{r}^p)$  或 $\mathbf{F} = \mathbf{F}( \Psi(\mathbf{r}^p))$ 继而求得加速度$\alpha = \mathbf{F}/m$
+	\item 再应用新求得的加速度调整粒子的位形，即
+	$\mathbf{r}^{i+1} = \mathbf{r}^p + \mathnormal{f}(\mathbf{a}, \Delta t)$和$\mathbf{v}^{i+1} = \mathbf{v}^p + \mathnormal{g}(\mathbf{a}, \Delta t)$
+	\item 考察边界条件，比如控制温度压强(NVT)
+	\item 计算宏观物理参数
+	\item 继续迭代 $t=t+ \Delta t$,$i=i+1$
+	\item 考察迭代次数，如果不满足终止条件，继续从步骤1开始重复
+\end{enumerate}
+(本节的主要参考文献为\cite{Frenkel1997Understanding,Rapaport2004The,Berendsen1998Molecular,Swope1982A})
+
